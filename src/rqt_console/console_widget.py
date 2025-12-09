@@ -175,7 +175,6 @@ class ConsoleWidget(QWidget):
         # list of TextBrowserDialogs to close when cleaning up
         self._browsers = []
 
-        # Set the default ratio of the table view to the filter views
         self.exclude_table.resizeColumnsToContents()
         self.highlight_table.resizeColumnsToContents()
 
