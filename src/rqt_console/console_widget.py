@@ -37,7 +37,7 @@ from ament_index_python.resources import get_resource
 from python_qt_binding import loadUi
 from python_qt_binding.QtCore import QRegExp, Qt, qWarning
 from python_qt_binding.QtGui import QCursor, QIcon
-from python_qt_binding.QtWidgets import (QApplication, QFileDialog, QHeaderView,
+from python_qt_binding.QtWidgets import (QApplication, QFileDialog,
                                          QMenu, QMessageBox, QTableView, QWidget)
 
 from rqt_py_common.ini_helper import pack, unpack
@@ -59,17 +59,14 @@ from .message_data_model import MessageDataModel
 
 from .text_browse_dialog import TextBrowseDialog
 
-
 class ConsoleWidget(QWidget):
     """Primary widget for the rqt_console plugin."""
 
-    def __init__(self, proxy_model, minimal=False):
+    def __init__(self, proxy_model):
         """
         Construct a ConsoleWidget object.
 
         :param proxymodel: the proxy model to display in the widget,''QSortFilterProxyModel''
-        :param minimal: if true the load, save and column buttons will be hidden as well as the
-                        filter splitter, ''bool''
         """
         super(ConsoleWidget, self).__init__()
         self._proxy_model = proxy_model
@@ -87,30 +84,13 @@ class ConsoleWidget(QWidget):
 
         loadUi(ui_file, self)
 
-        if minimal:
-            self.load_button.hide()
-            self.save_button.hide()
-            self.column_resize_button.hide()
         self.setObjectName('ConsoleWidget')
         self.table_view.setModel(proxy_model)
 
-        self._columnwidth = (60, 100, 70, 100, 100, 100, 100)
-        for idx, width in enumerate(self._columnwidth):
-            self.table_view.horizontalHeader().resizeSection(idx, width)
-        try:
-            setSectionResizeMode = self.table_view.horizontalHeader().setSectionResizeMode  # Qt5
-        except AttributeError:
-            setSectionResizeMode = self.table_view.horizontalHeader().setResizeMode  # Qt4
-        setSectionResizeMode(1, QHeaderView.Stretch)
-
-        def update_sort_indicator(logical_index, order):
-            if logical_index == 0:
-                self._proxy_model.sort(-1)
-            self.table_view.horizontalHeader().setSortIndicatorShown(logical_index != 0)
+        # Set the initial size of the message column to be a bit bigger
+        self.table_view.setColumnWidth(1, 400)
 
         horizontal_header = self.table_view.horizontalHeader()
-        horizontal_header.sortIndicatorChanged.connect(update_sort_indicator)
-
         horizontal_header.setContextMenuPolicy(Qt.CustomContextMenu)
         horizontal_header.customContextMenuRequested.connect(self._handle_column_right_click)
 
@@ -195,11 +175,7 @@ class ConsoleWidget(QWidget):
         # list of TextBrowserDialogs to close when cleaning up
         self._browsers = []
 
-        # This defaults the filters panel to start by taking 50% of the available space
-        if minimal:
-            self.table_splitter.setSizes([1, 0])
-        else:
-            self.table_splitter.setSizes([1, 1])
+        # Set the default ratio of the table view to the filter views
         self.exclude_table.resizeColumnsToContents()
         self.highlight_table.resizeColumnsToContents()
 
@@ -828,13 +804,13 @@ class ConsoleWidget(QWidget):
         instance_settings.set_value('highlight_filters', pack(highlight_filters))
         instance_settings.set_value('message_limit', self._model.get_message_limit())
 
+        instance_settings.set_value('message_table_header_state', self.table_view.horizontalHeader().saveState())
+
     def restore_settings(self, pluggin_settings, instance_settings):
         if instance_settings.contains('table_splitter'):
             self.table_splitter.restoreState(instance_settings.value('table_splitter'))
         if instance_settings.contains('filter_splitter'):
             self.filter_splitter.restoreState(instance_settings.value('filter_splitter'))
-        else:
-            self.filter_splitter.setSizes([1, 1])
 
         paused = instance_settings.value('paused') in [True, 'true']
         if paused:
@@ -875,3 +851,6 @@ class ConsoleWidget(QWidget):
 
         if instance_settings.contains('message_limit'):
             self._model.set_message_limit(int(instance_settings.value('message_limit')))
+
+        if instance_settings.contains('message_table_header_state'):
+            self.table_view.horizontalHeader().restoreState(instance_settings.value('message_table_header_state'))
